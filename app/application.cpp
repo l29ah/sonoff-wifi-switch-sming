@@ -23,6 +23,10 @@
 	#endif
 #endif
 
+#define REL_PIN       12             // GPIO 12 = Red Led and Relay (0 = Off, 1 = On)
+#define LED_PIN       13             // GPIO 13 = Green Led (0 = On, 1 = Off)
+#define KEY_PIN       0              // GPIO 00 = Button
+
 // Forward declarations
 void startMqttClient();
 void onMessageReceived(String topic, String message);
@@ -50,31 +54,32 @@ void onMessageDelivered(uint16_t msgId, int type) {
 	Serial.printf("Message with id %d and QoS %d was delivered successfully.", msgId, (type==MQTT_MSG_PUBREC? 2: 1));
 }
 
-// Publish our message
-void publishMessage()
+void pollConnection()
 {
 	if (mqtt->getConnectionState() != eTCS_Connected)
 		startMqttClient(); // Auto reconnect
-
-	Serial.println("Let's publish message now!");
-	mqtt->publish("main/frameworks/sming", "Hello friends, from Internet of things :)"); 
-
-	mqtt->publishWithQoS("important/frameworks/sming", "Request Return Delivery", 1, false, onMessageDelivered); // or publishWithQoS
 }
 
 // Callback for messages, arrived from MQTT server
 void onMessageReceived(String topic, String message)
 {
+	digitalWrite(LED_PIN, 0);
 	Serial.print(topic);
 	Serial.print(":\r\n\t"); // Pretify alignment for printing
 	Serial.println(message);
+	if (topic.endsWith("/on")) {
+		long val = message.toInt();
+		digitalWrite(REL_PIN, val);
+	}
+	digitalWrite(LED_PIN, 1);
 }
 
 // Run MQTT client
 void startMqttClient()
 {
 	procTimer.stop();
-	if(!mqtt->setWill("last/will","The connection from this device is lost:(", 1, true)) {
+	String addr = "/devices/" + WifiAccessPoint.getMAC().substring(8, 4);
+	if(!mqtt->setWill(addr + "/meta/error","disconnected", 1, true)) {
 		debugf("Unable to set the last will and testament. Most probably there is not enough memory on the device.");
 	}
 	mqtt->connect("esp8266", MQTT_USERNAME, MQTT_PWD, true);
@@ -90,7 +95,9 @@ void startMqttClient()
 #endif
 	// Assign a disconnect callback function
 	mqtt->setCompleteDelegate(checkMQTTDisconnect);
-	mqtt->subscribe("main/status/#");
+	mqtt->publish	(addr + "/meta/name", "Sonoff switch", 1);
+	mqtt->publish	(addr + "/controls/relay/meta/type", "switch", 1);
+	mqtt->subscribe	(addr + "/controls/relay/on");
 }
 
 // Will be called when WiFi station was connected to AP
@@ -101,8 +108,7 @@ void connectOk()
 	// Run MQTT client
 	startMqttClient();
 
-	// Start publishing loop
-	procTimer.initializeMs(20 * 1000, publishMessage).start(); // every 20 seconds
+	procTimer.initializeMs(20 * 1000, pollConnection).start(); // every 20 seconds
 }
 
 // Will be called when WiFi station timeout was reached
@@ -117,6 +123,10 @@ void init()
 {
 	Serial.begin(SERIAL_BAUD_RATE); // 115200 by default
 	Serial.systemDebugOutput(true); // Debug output to serial
+
+	pinMode(REL_PIN, OUTPUT);
+	pinMode(LED_PIN, OUTPUT);
+	pinMode(KEY_PIN, INPUT);
 
 	mqtt = new MqttClient(MQTT_HOST, MQTT_PORT, onMessageReceived);
 
