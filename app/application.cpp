@@ -78,11 +78,12 @@ void onMessageReceived(String topic, String message)
 void startMqttClient()
 {
 	procTimer.stop();
-	String addr = "/devices/" + WifiAccessPoint.getMAC().substring(8, 4);
+	String id = WifiAccessPoint.getMAC().substring(8, 4);
+	String addr = "/devices/" + id;
 	if(!mqtt->setWill(addr + "/meta/error","disconnected", 1, true)) {
 		debugf("Unable to set the last will and testament. Most probably there is not enough memory on the device.");
 	}
-	mqtt->connect("esp8266", MQTT_USERNAME, MQTT_PWD, true);
+	mqtt->connect("Sonoff switch " + id, MQTT_USERNAME, MQTT_PWD, true);
 #ifdef ENABLE_SSL
 	mqtt->addSslOptions(SSL_SERVER_VERIFY_LATER);
 
