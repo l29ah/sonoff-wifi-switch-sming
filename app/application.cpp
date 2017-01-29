@@ -62,6 +62,7 @@ void pollConnection()
 		startMqttClient(); // Auto reconnect
 }
 
+bool relstate = 0;
 // Callback for messages, arrived from MQTT server
 void onMessageReceived(String topic, String message)
 {
@@ -71,9 +72,31 @@ void onMessageReceived(String topic, String message)
 	Serial.println(message);
 	if (topic.endsWith("/on")) {
 		long val = message.toInt();
-		digitalWrite(REL_PIN, val);
+		relstate = val;
+		digitalWrite(REL_PIN, relstate);
+		goto exit;
 	}
+
+exit:
 	digitalWrite(LED_PIN, 1);
+}
+
+String addr;
+bool mqttrdy = false;	// FIXME ask the library
+void IRAM_ATTR keyHandler()
+{
+	static bool oldstate = 0;
+	bool newstate = digitalRead(KEY_PIN);
+	if (newstate == 1 && oldstate == 0) {
+		relstate = !relstate;
+		digitalWrite(REL_PIN, relstate);
+		if (mqttrdy) {
+			char msg[2];
+			msg[0] = '0' + relstate;
+			msg[1] = 0;
+			mqtt->publish	(addr + "/controls/relay/on", msg, 1);
+		}
+	}
 }
 
 // Run MQTT client
@@ -81,7 +104,7 @@ void startMqttClient()
 {
 	procTimer.stop();
 	String id = WifiAccessPoint.getMAC().substring(8, 4);
-	String addr = "/devices/" + id;
+	addr = "/devices/" + id;
 	if(!mqtt->setWill(addr + "/meta/error","disconnected", 1, true)) {
 		debugf("Unable to set the last will and testament. Most probably there is not enough memory on the device.");
 	}
@@ -96,6 +119,7 @@ void startMqttClient()
 							  default_certificate, default_certificate_len, NULL, true);
 
 #endif
+	mqttrdy = true;
 	// Assign a disconnect callback function
 	mqtt->setCompleteDelegate(checkMQTTDisconnect);
 	mqtt->publish	(addr + "/meta/name", "Sonoff switch", 1);
@@ -107,6 +131,7 @@ void startMqttClient()
 void connectOk()
 {
 	Serial.println("I'm CONNECTED");
+	digitalWrite(LED_PIN, 1);
 
 	// Run MQTT client
 	startMqttClient();
@@ -130,6 +155,7 @@ void init()
 	pinMode(REL_PIN, OUTPUT);
 	pinMode(LED_PIN, OUTPUT);
 	pinMode(KEY_PIN, INPUT);
+	attachInterrupt(KEY_PIN, keyHandler, CHANGE);
 
 	mqtt = new MqttClient(MQTT_HOST, MQTT_PORT, onMessageReceived);
 
