@@ -16,6 +16,8 @@
 // ... and/or MQTT host and port
 #ifndef MQTT_HOST
 	#define MQTT_HOST "test.mosquitto.org"
+#endif
+#ifndef MQTT_PORT
 	#ifndef ENABLE_SSL
 		#define MQTT_PORT 1883
 	#else
