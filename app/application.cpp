@@ -124,6 +124,7 @@ void startMqttClient()
 	mqtt->setCompleteDelegate(checkMQTTDisconnect);
 	mqtt->publish	(addr + "/meta/name", "Sonoff switch", 1);
 	mqtt->publish	(addr + "/controls/relay/meta/type", "switch", 1);
+	mqtt->publish	(addr + "/meta/error","", 1);
 	mqtt->subscribe	(addr + "/controls/relay/on");
 }
 
