@@ -1,5 +1,6 @@
 #include <user_config.h>
 #include <SmingCore/SmingCore.h>
+#include <Bounce/Bounce.h>
 
 // If you want, you can define WiFi settings globally in Eclipse Environment Variables
 #ifndef WIFI_SSID
@@ -28,6 +29,9 @@
 #define REL_PIN       12             // GPIO 12 = Red Led and Relay (0 = Off, 1 = On)
 #define LED_PIN       13             // GPIO 13 = Green Led (0 = On, 1 = Off)
 #define KEY_PIN       0              // GPIO 00 = Button
+
+// Instantiate a Bounce object with a 25 millisecond debounce time
+Bounce bouncer = Bounce(KEY_PIN, 25);
 
 // Forward declarations
 void startMqttClient();
@@ -85,9 +89,9 @@ String addr;
 bool mqttrdy = false;	// FIXME ask the library
 void IRAM_ATTR keyHandler()
 {
-	static bool oldstate = 0;
-	bool newstate = digitalRead(KEY_PIN);
-	if (newstate == 1 && oldstate == 0) {
+	bool upd = bouncer.update();
+	bool newstate = bouncer.read();
+	if (upd && newstate == 1) {
 		relstate = !relstate;
 		digitalWrite(REL_PIN, relstate);
 		if (mqttrdy) {
