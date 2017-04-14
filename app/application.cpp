@@ -103,12 +103,15 @@ void IRAM_ATTR keyHandler()
 void startMqttClient()
 {
 	procTimer.stop();
-	String id = WifiAccessPoint.getMAC().substring(8, 4);
-	addr = "/devices/" + id;
+	uint32 id = system_get_chip_id();
+	char id_s[9];
+	sprintf(id_s, "%lx", id);
+	String id_S = id_s;
+	addr = "/devices/" + id_S;
 	if(!mqtt->setWill(addr + "/meta/error","disconnected", 1, true)) {
 		debugf("Unable to set the last will and testament. Most probably there is not enough memory on the device.");
 	}
-	mqtt->connect("Sonoff switch " + id, MQTT_USERNAME, MQTT_PWD, true);
+	mqtt->connect("Sonoff switch " + id_S, MQTT_USERNAME, MQTT_PWD, true);
 #ifdef ENABLE_SSL
 	mqtt->addSslOptions(SSL_SERVER_VERIFY_LATER);
 
